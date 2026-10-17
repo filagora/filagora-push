@@ -11,9 +11,13 @@ use Filagora\Forums\Models\Thread;
 use Filagora\Messages\Events\MessageReceived;
 use Filagora\Messages\Models\PrivateConversation;
 use Filagora\Messages\Models\PrivateMessage;
+use Filagora\Push\Contracts\PushPreferences;
+use Filagora\Push\Enums\PushCategory;
 use Filagora\Push\Notifications\WebPushAlert;
+use Filagora\Push\Services\PushNotifier;
 use Filagora\Push\Services\PushSubscriptions;
 use Filagora\Push\Tests\Support\TestUser;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Notification;
@@ -199,4 +203,52 @@ it('registers the alert listeners for the installed packages', function () {
     expect(Event::hasListeners(UsersMentioned::class))->toBeTrue()
         ->and(Event::hasListeners(SubscribersToNotify::class))->toBeTrue()
         ->and(Event::hasListeners(MessageReceived::class))->toBeTrue();
+});
+
+// ------------------------------------------------------- the sharper edges
+
+it('asks the preferences about the right kind of alert for each event', function () {
+    $asked = [];
+    app()->instance(PushPreferences::class, new class($asked) implements PushPreferences
+    {
+        public function __construct(public array &$asked) {}
+
+        public function allows(Authenticatable $user, PushCategory $category): bool
+        {
+            $this->asked[] = $category;
+
+            return true;
+        }
+    });
+    app()->forgetInstance(PushNotifier::class);
+    $bob = subscribed('Bob');
+    $post = forumPost();
+    $message = directMessage();
+
+    UsersMentioned::dispatch($post, [$bob]);
+    SubscribersToNotify::dispatch($post, $post->thread, [$bob]);
+    MessageReceived::dispatch($message->conversation, $message, [$bob]);
+
+    expect($asked)->toBe([PushCategory::MENTION, PushCategory::THREAD_UPDATE, PushCategory::PRIVATE_MESSAGE]);
+});
+
+it('opens the site when the named conversation route does not exist', function () {
+    config(['filagora-push.routes.conversation' => 'no.such.route']);
+    $bob = subscribed('Bob');
+    $message = directMessage();
+
+    MessageReceived::dispatch($message->conversation, $message, [$bob]);
+
+    expect(alertsTo($bob)[0]->url)->toBe(url('/'));
+});
+
+it('says someone when the sender has no name', function () {
+    $bob = subscribed('Bob');
+    $sender = TestUser::make('Nameless');
+    $sender->forceFill(['name' => ''])->save();
+    $message = directMessage('Hello', $sender);
+
+    MessageReceived::dispatch($message->conversation, $message, [$bob]);
+
+    expect(alertsTo($bob)[0]->title)->toBe('New message from Someone');
 });
