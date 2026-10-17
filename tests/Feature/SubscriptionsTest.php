@@ -11,6 +11,7 @@ use Filagora\Push\Services\PushSubscriptions;
 use Filagora\Push\Tests\Support\TestUser;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Minishlink\WebPush\ContentEncoding;
 
 beforeEach(fn () => Carbon::setTestNow(Carbon::parse('2026-06-15 12:00:00')));
@@ -314,4 +315,80 @@ it('exports a person\'s browsers without what would allow sending to them, and e
     $contributor->erase($alice);
 
     expect(PushSubscription::pluck('subscribable_id')->all())->toBe([$bob->id]);
+});
+
+// ------------------------------------------------- the sharper edges of the checks
+
+it('refuses a backslash that a URL parser and an HTTP client would read differently', function () {
+    // PHP reads the host of this as one string ending in the wildcard's suffix; curl treats the
+    // backslash as the end of the host and connects to evil.test.
+    expect(subs()->isAllowedEndpoint('https://evil.test\\.push.apple.com/x'))->toBeFalse()
+        ->and(subs()->isAllowedEndpoint('https://fcm.googleapis.com\\evil/x'))->toBeFalse();
+});
+
+it('matches a wildcard only at the end of the host', function () {
+    expect(subs()->isAllowedEndpoint('https://a.push.apple.com.evil.test/x'))->toBeFalse()
+        ->and(subs()->isAllowedEndpoint('https://push.apple.com.evil.test/x'))->toBeFalse()
+        ->and(subs()->isAllowedEndpoint('https://a.push.apple.com/x'))->toBeTrue();
+});
+
+it('refuses an at sign anywhere in the endpoint, even on an allowed host', function () {
+    expect(subs()->isAllowedEndpoint('https://fcm.googleapis.com/fcm/send/a@b'))->toBeFalse()
+        ->and(subs()->isAllowedEndpoint('https://fcm.googleapis.com/fcm/send/ab?x=@'))->toBeFalse();
+});
+
+it('allows an endpoint of exactly the length the table holds, and no longer', function () {
+    $prefix = 'https://fcm.googleapis.com/';
+
+    expect(subs()->isAllowedEndpoint($prefix.str_repeat('a', 1024 - strlen($prefix))))->toBeTrue()
+        ->and(subs()->isAllowedEndpoint($prefix.str_repeat('a', 1025 - strlen($prefix))))->toBeFalse();
+});
+
+it('gives a subscription that changes hands a new row', function () {
+    $alice = TestUser::make('Alice');
+    $bob = TestUser::make('Bob');
+    $first = pushStore($alice);
+    $this->travel(1)->day();
+
+    $moved = pushStore($bob);
+
+    expect($moved->id)->not->toBe($first->id)->and($moved->created_at->toDateTimeString())->toBe('2026-06-16 12:00:00');
+});
+
+it('does not treat a row of another kind of owner with the same id as the person\'s own', function () {
+    $user = TestUser::make('Alice');
+    $foreign = (new PushSubscription(['endpoint' => FCM, 'public_key' => 'x', 'auth_token' => 'y']))->forceFill(['subscribable_type' => 'App\\Other', 'subscribable_id' => $user->id]);
+    $foreign->save();
+
+    $stored = pushStore($user);
+
+    expect(PushSubscription::count())->toBe(1)->and($stored->id)->not->toBe($foreign->id)->and($stored->subscribable_type)->toBe($user->getMorphClass());
+});
+
+it('tries again when another request stored the same endpoint at that moment', function () {
+    $user = TestUser::make('Alice');
+    $raced = false;
+    PushSubscription::creating(function () use (&$raced, $user) {
+        if (! $raced) {
+            $raced = true;
+            DB::table('filagora_push_subscriptions')->insert([
+                'subscribable_type' => $user->getMorphClass(), 'subscribable_id' => $user->id, 'endpoint' => FCM,
+                'public_key' => 'old', 'auth_token' => 'old', 'created_at' => now(), 'updated_at' => now(),
+            ]);
+        }
+    });
+
+    $stored = pushStore($user, with: ['key' => 'new-key']);
+
+    expect($raced)->toBeTrue()->and(PushSubscription::count())->toBe(1)->and($stored->public_key)->toBe('new-key')->and(PushSubscription::sole()->public_key)->toBe('new-key');
+});
+
+it('keeps a subscription used exactly the number of days ago', function () {
+    $sub = pushStore(TestUser::make('Alice'));
+    PushSubscription::whereKey($sub->id)->toBase()->update(['last_used_at' => now()->subDays(180)]);
+
+    expect(subs()->pruneStale(180))->toBe(0);
+
+    PushSubscription::whereKey($sub->id)->toBase()->update(['last_used_at' => now()->subDays(180)->subSecond()]);
+    expect(subs()->pruneStale(180))->toBe(1);
 });
