@@ -7,6 +7,8 @@ namespace Filagora\Push\Tests;
 use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use BladeUI\Icons\BladeIconsServiceProvider;
 use Filagora\Core\CoreServiceProvider;
+use Filagora\Forums\ForumsServiceProvider;
+use Filagora\Messages\MessagesServiceProvider;
 use Filagora\Push\PushServiceProvider;
 use Filagora\Push\Tests\Support\TestSupportServiceProvider;
 use Filagora\Push\Tests\Support\TestUser;
@@ -41,6 +43,8 @@ abstract class TestCase extends Orchestra
             TablesServiceProvider::class,
             WidgetsServiceProvider::class,
             CoreServiceProvider::class,
+            ForumsServiceProvider::class,
+            MessagesServiceProvider::class,
             WebPushServiceProvider::class,
             PushServiceProvider::class,
             TestSupportServiceProvider::class,

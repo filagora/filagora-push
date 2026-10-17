@@ -34,4 +34,27 @@ return [
     */
     'prune_days' => 180,
 
+    /*
+    |--------------------------------------------------------------------------
+    | Alerts
+    |--------------------------------------------------------------------------
+    |
+    | Which events become push alerts (each needs its package: forums for `mentions` and
+    | `thread_updates`, messages for `messages`). `routes` name your thread and conversation pages
+    | (they receive `thread` and `conversation`); without them an alert opens the site root, unless
+    | those packages' email routes are set. `icon` and `badge` are image paths shown with an alert.
+    |
+    */
+    'listen' => [
+        'mentions' => true,
+        'thread_updates' => true,
+        'messages' => true,
+    ],
+    'routes' => [
+        'thread' => null,
+        'conversation' => null,
+    ],
+    'icon' => null,
+    'badge' => null,
+
 ];
