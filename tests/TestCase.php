@@ -7,6 +7,8 @@ namespace Filagora\Push\Tests;
 use BladeUI\Heroicons\BladeHeroiconsServiceProvider;
 use BladeUI\Icons\BladeIconsServiceProvider;
 use Filagora\Core\CoreServiceProvider;
+use Filagora\Forums\ForumsServiceProvider;
+use Filagora\Messages\MessagesServiceProvider;
 use Filagora\Push\PushServiceProvider;
 use Filagora\Push\Tests\Support\TestSupportServiceProvider;
 use Filagora\Push\Tests\Support\TestUser;
@@ -20,6 +22,7 @@ use Filament\Support\SupportServiceProvider;
 use Filament\Tables\TablesServiceProvider;
 use Filament\Widgets\WidgetsServiceProvider;
 use Livewire\LivewireServiceProvider;
+use NotificationChannels\WebPush\WebPushServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
 abstract class TestCase extends Orchestra
@@ -40,6 +43,9 @@ abstract class TestCase extends Orchestra
             TablesServiceProvider::class,
             WidgetsServiceProvider::class,
             CoreServiceProvider::class,
+            ForumsServiceProvider::class,
+            MessagesServiceProvider::class,
+            WebPushServiceProvider::class,
             PushServiceProvider::class,
             TestSupportServiceProvider::class,
         ];
@@ -49,6 +55,7 @@ abstract class TestCase extends Orchestra
     {
         $app['config']->set('filagora.user_model', TestUser::class);
         $app['config']->set('auth.providers.users.model', TestUser::class);
+        $app['config']->set('webpush.database_connection', null);
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('k', 32)));
     }
 }
