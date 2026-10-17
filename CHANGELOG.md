@@ -5,6 +5,10 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-17
+
+First release.
+
 ### Added
 
 - Table `push_subscriptions` (matching the existing site's table, index for index; use this migration instead of the sending package's) and the `PushSubscription` model on it.
