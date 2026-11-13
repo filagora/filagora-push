@@ -9,7 +9,7 @@ requires [`filagora/filagora-core`](https://github.com/filagora/filagora-core).
 > The package is at `0.1`: the API may change between `0.x` minor versions. There is no
 > frontend: the service worker and the subscribe button are yours.
 
-## What it does
+## What it provides
 
 - **Subscriptions.** `PushSubscriptions::store($user, $endpoint, $publicKey, $authToken, $encoding, $userAgent)`
   keeps this browser's subscription for a person (refreshing it if it is already there, moving it if
@@ -42,6 +42,10 @@ requires [`filagora/filagora-core`](https://github.com/filagora/filagora-core).
   index for index, so `php artisan filagora:adopt` accepts it. Use this package's migration instead of
   the one the sending package publishes.
 
+## Requirements
+
+PHP 8.4, Laravel 13 and Filament 5. Tested against MariaDB 11.4. Requires [`filagora/filagora-core`](https://github.com/filagora/filagora-core).
+
 ## Install
 
 ```bash
@@ -57,13 +61,30 @@ result to a route of yours that calls `PushSubscriptions::store()`; in the servi
 message and open `data.url` on click, and post to a route that calls `resync()` on
 `pushsubscriptionchange`.
 
+## Configuration
+
+`config/filagora-push.php` is merged with the host's copy, so list only what
+differs. Publish it with `php artisan vendor:publish --tag=filagora-push-config`.
+
+## Extending
+
+Extend through documented contracts, events and registries. Anything not documented
+is `@internal`.
+
 ## Testing
 
 ```bash
 composer test
 ```
 
-Tests run against a real MariaDB database named `testing`.
+Tests run against a real MariaDB, never SQLite, so engine behaviour (FULLTEXT,
+`ONLY_FULL_GROUP_BY`, collation) matches production. Host and credentials come from
+your environment; the database is always named `testing`, never your development one.
+
+## Local development (DDEV)
+
+`.ddev/` is included. `ddev start` creates both `db` and `testing` (run `ddev restart` once
+if `testing` is missing), then `ddev exec vendor/bin/pest`.
 
 ## Licence
 
