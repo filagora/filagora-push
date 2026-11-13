@@ -11,6 +11,30 @@ requires [`filagora/filagora-core`](https://github.com/filagora/filagora-core).
 
 ## What it provides
 
+### Overview
+
+Web push for Filagora: browser subscriptions with the safety checks, stale clean-up, privacy, and push alerts for mentions, thread updates and private messages.
+
+### Tables
+
+`push_subscriptions`, prefixed `filagora_` by default. A site that already has them can run `php artisan filagora:adopt` instead of migrating.
+
+### Commands
+
+| Command | What it does |
+| --- | --- |
+| `filagora:push:prune-stale {--days=} {--dry-run}` | Delete browser push subscriptions that have not been used in a long time. |
+
+### Events
+
+This package fires no events.
+
+### Access
+
+This package defines no abilities.
+
+### Using it
+
 - **Subscriptions.** `PushSubscriptions::store($user, $endpoint, $publicKey, $authToken, $encoding, $userAgent)`
   keeps this browser's subscription for a person (refreshing it if it is already there, moving it if
   someone else was using the browser). `resync()` is for the service worker's
